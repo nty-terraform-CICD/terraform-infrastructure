@@ -1,93 +1,64 @@
-# This workflow installs the latest version of Terraform CLI and configures the Terraform CLI configuration file
-# with an API token for Terraform Cloud (app.terraform.io). On pull request events, this workflow will run
-# `terraform init`, `terraform fmt`, and `terraform plan` (speculative plan via Terraform Cloud). On push events
-# to the "main" branch, `terraform apply` will be executed.
-#
-# Documentation for `hashicorp/setup-terraform` is located here: https://github.com/hashicorp/setup-terraform
-#
-# To use this workflow, you will need to complete the following setup steps.
-#
-# 1. Create a `main.tf` file in the root of this repository with the `remote` backend and one or more resources defined.
-#   Example `main.tf`:
-#     # The configuration for the `remote` backend.
-#     terraform {
-#       backend "remote" {
-#         # The name of your Terraform Cloud organization.
-#         organization = "example-organization"
-#
-#         # The name of the Terraform Cloud workspace to store Terraform state files in.
-#         workspaces {
-#           name = "example-workspace"
-#         }
-#       }
-#     }
-#
-#     # An example resource that does nothing.
-#     resource "null_resource" "example" {
-#       triggers = {
-#         value = "A example resource that does nothing!"
-#       }
-#     }
-#
-#
-# 2. Generate a Terraform Cloud user API token and store it as a GitHub secret (e.g. TF_API_TOKEN) on this repository.
-#   Documentation:
-#     - https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html
-#     - https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets
-#
-# 3. Reference the GitHub secret in step using the `hashicorp/setup-terraform` GitHub Action.
-#   Example:
-#     - name: Setup Terraform
-#       uses: hashicorp/setup-terraform@v1
-#       with:
-#         cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+name: 'Terraform Prod Infrastructure Deployment (OIDC)'
 
-name: 'Terraform'
-
+# 1. 워크플로우 실행 조건 정의
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
+    branches:
+      - main  # main 브랜치에 코드가 푸시될 때마다 실행
+    paths:
+      - 'environments/test/**' # environments/prod 폴더 내 파일이 변경되었을 때만 실행
+  workflow_dispatch: {} # 수동 실행을 허용
 
+# 2. OIDC 권한 설정 (핵심 보안 단계)
+# 이 권한 설정을 통해 GitHub Actions가 AWS IAM Role을 수임할 수 있게 됩니다.
 permissions:
-  contents: read
+  id-token: write # OIDC 토큰 발급을 허용
+  contents: read  # 저장소 코드 읽기 권한만 부여
 
+# 3. 작업(Jobs) 정의
 jobs:
-  terraform:
-    name: 'Terraform'
+  terraform_deployment:
     runs-on: ubuntu-latest
-    environment: production
+    environment: production # GitHub 환경(Environment) 기능 사용 (보안 및 승인 절차 추가 가능)
 
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
-    defaults:
-      run:
-        shell: bash
+    # 4. 환경 변수 설정
+    env:
+      AWS_REGION: us-west-2 # 실제 배포할 AWS 리전 (Prod 리전)
+      TF_WORKING_DIR: environments/prod # Terraform 명령어 실행 경로 설정
 
     steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Git 코드 가져오기
 
-    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-      with:
-        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+      # 5. AWS 권한 설정 (IAM Role 수임)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::089955620282:role/nty-terraform-cicd # ⬅️ 여기에 생성한 IAM Role ARN 입력
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-terraform-session # 임시 세션 이름
 
-    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
-    - name: Terraform Init
-      run: terraform init
+      # 6. Terraform 환경 설정
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.4.0 # 적절한 Terraform 버전 지정
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
-      run: terraform fmt -check
+      # 7. Terraform 초기화
+      - name: Terraform Init
+        id: init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        # OIDC를 통해 권한을 획득했으므로, backend 블록에서 profile 설정은 필요 없습니다.
 
-    # Generates an execution plan for Terraform
-    - name: Terraform Plan
-      run: terraform plan -input=false
+      # 8. Terraform Plan 실행 (변경 사항 검토)
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-      # On push to "main", build or change infrastructure according to Terraform configuration files
-      # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
-      run: terraform apply -auto-approve -input=false
+      # 9. Terraform Apply 실행 (실제 배포)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' # main 브랜치에 푸시된 경우에만 실행
+        run: terraform apply -auto-approve -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
