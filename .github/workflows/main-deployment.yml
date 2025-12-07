@@ -24,7 +24,7 @@ jobs:
     # 4. 환경 변수 설정
     env:
       AWS_REGION: us-west-2 # 실제 배포할 AWS 리전 (Prod 리전)
-      TF_WORKING_DIR: environments/prod # Terraform 명령어 실행 경로 설정
+      TF_WORKING_DIR: AWS-TF/environments/prod # Terraform 명령어 실행 경로 설정
 
     steps:
       - name: Checkout Repository
