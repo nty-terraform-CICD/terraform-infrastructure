@@ -29,6 +29,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4 # Git 코드 가져오기
+              
+      - name: Debug - List Files
+        run: |
+          ls -R 
+          echo "Working Directory: ${{ env.TF_WORKING_DIR }}"
+          ls -l ${{ env.TF_WORKING_DIR }}
 
       # 5. AWS 권한 설정 (IAM Role 수임)
       - name: Configure AWS Credentials
@@ -64,9 +70,5 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
 
-      - name: Debug - List Files
-        run: |
-          ls -R 
-          echo "Working Directory: ${{ env.TF_WORKING_DIR }}"
-          ls -l ${{ env.TF_WORKING_DIR }}
+
 
