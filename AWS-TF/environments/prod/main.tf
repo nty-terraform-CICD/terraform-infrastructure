@@ -12,13 +12,13 @@ terraform {
     region         = "us-west-2"                   # 수정됨: 시나리오에 맞춰 버지니아로 변경 (버킷도 이 리전에 있어야 함)
     encrypt        = true
     dynamodb_table = "nty-terraform-lock-test"
-    profile        = "developer" # 추가됨: Step 3에서 등록한 프로필 사용
+    #profile        = "developer" # 추가됨: Step 3에서 등록한 프로필 사용
   }
 }
 
 provider "aws" {
-  region  = "us-west-2"
-  profile = "developer" # 이 Provider는 developer 권한으로 실행됨
+  region = "us-west-2"
+  #profile = "developer" # 이 Provider는 developer 권한으로 실행됨
 }
 
 module "network" {
