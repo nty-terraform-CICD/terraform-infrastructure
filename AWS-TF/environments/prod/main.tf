@@ -23,5 +23,5 @@ provider "aws" {
 
 module "network" {
   source   = "../../modules/network"
-  env_name = "prod" # 수정됨: prod로 변경12
+  env_name = "prod" # 수정됨: prod로 변경123
 }
