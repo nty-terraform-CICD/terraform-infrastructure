@@ -62,3 +62,11 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push' # main 브랜치에 푸시된 경우에만 실행
         run: terraform apply -auto-approve -input=false
         working-directory: ${{ env.TF_WORKING_DIR }}
+
+
+      - name: Debug - List Files
+        run: |
+          ls -R 
+          echo "Working Directory: ${{ env.TF_WORKING_DIR }}"
+          ls -l ${{ env.TF_WORKING_DIR }}
+
