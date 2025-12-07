@@ -6,7 +6,7 @@ on:
     branches:
       - main  # main 브랜치에 코드가 푸시될 때마다 실행
     paths:
-      - 'environments/test/**' # environments/prod 폴더 내 파일이 변경되었을 때만 실행
+      - 'environments/prod' # environments/prod 폴더 내 파일이 변경되었을 때만 실행
   workflow_dispatch: {} # 수동 실행을 허용
 
 # 2. OIDC 권한 설정 (핵심 보안 단계)
